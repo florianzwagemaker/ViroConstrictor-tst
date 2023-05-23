@@ -11,19 +11,19 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Apptainer
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget curl
-          cd /tmp
-          LATEST_RELEASE=$(curl -L -s -H 'Accept: application/json' https://github.com/apptainer/apptainer/releases/latest)
-          LATEST_VERSION=$(echo $LATEST_RELEASE | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
-          LATEST_VER_STRIPPED=$(echo $LATEST_VERSION | sed -e 's/^v\(.*\)/\1/')
-          wget https://github.com/apptainer/apptainer/releases/download/${LATEST_VERSION}/apptainer_${LATEST_VER_STRIPPED}_amd64.deb
-          sudo apt-get install -y ./apptainer_${LATEST_VER_STRIPPED}_amd64.deb
-
       # - name: Setup Apptainer
-      #   uses: eWaterCycle/setup-apptainer@v2
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y wget curl
+      #     cd /tmp
+      #     LATEST_RELEASE=$(curl -L -s -H 'Accept: application/json' https://github.com/apptainer/apptainer/releases/latest)
+      #     LATEST_VERSION=$(echo $LATEST_RELEASE | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
+      #     LATEST_VER_STRIPPED=$(echo $LATEST_VERSION | sed -e 's/^v\(.*\)/\1/')
+      #     wget https://github.com/apptainer/apptainer/releases/download/${LATEST_VERSION}/apptainer_${LATEST_VER_STRIPPED}_amd64.deb
+      #     sudo apt-get install -y ./apptainer_${LATEST_VER_STRIPPED}_amd64.deb
+
+      - name: Setup Apptainer
+        uses: eWaterCycle/setup-apptainer@v2
 
       - name: Setup Mamba
         uses: mamba-org/setup-micromamba@v1
