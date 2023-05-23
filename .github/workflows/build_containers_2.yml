@@ -77,7 +77,7 @@ jobs:
       
       - name: list directory contents
         run: |
-          ls -l ./containers/
+          ls -R ./containers/artifacts
 
       # - name: Setup Apptainer
       #   uses: eWaterCycle/setup-apptainer@v2
