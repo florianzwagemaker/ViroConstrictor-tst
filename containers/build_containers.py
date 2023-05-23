@@ -51,6 +51,7 @@ if __name__ == "__main__":
     
     mountfiles = [f"    {os.path.join(base_path_to_files, file)}    /files/{file}\n" for file in os.listdir(base_path_to_files)]
     
+    builtcontainers = []
     for recipe, VersionHash in recipe_hashes.items():
         # strip the name of the recipe to only get the name of the environment
         recipe_basename = os.path.basename(recipe).replace(".yaml", "")
@@ -102,9 +103,11 @@ if __name__ == "__main__":
             subprocess.run(["sudo", "apptainer", "build", f"{tmpdir}/{container_basename}.sif", f"{tmp.name}"], check=True)
             #move the container file to the current working directory
             shutil.copyfile(f"{tmpdir}/{container_basename}.sif", f"{base_path_to_container_defs}/{container_basename}.sif")
-
+        builtcontainers.append(f"{container_basename}.sif")
         print(tags)
         print(VersionHash)
 
         print(recipe_basename)
         print(container_basename)
+    with open("builtcontainers.json", "w") as f:
+        json.dump(builtcontainers, f, indent=4)
