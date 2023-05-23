@@ -1,0 +1,57 @@
+name: build containers, tests, and push to registry
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+
+jobs:
+  Setup_and_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Apptainer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl
+          cd /tmp
+          LATEST_RELEASE=$(curl -L -s -H 'Accept: application/json' https://github.com/apptainer/apptainer/releases/latest)
+          LATEST_VERSION=$(echo $LATEST_RELEASE | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
+          LATEST_VER_STRIPPED=$(echo $LATEST_VERSION | sed -e 's/^v\(.*\)/\1/')
+          wget https://github.com/apptainer/apptainer/releases/download/${LATEST_VERSION}/apptainer_${LATEST_VER_STRIPPED}_amd64.deb
+          sudo apt-get install -y ./apptainer_${LATEST_VER_STRIPPED}_amd64.deb
+
+      # - name: Setup Apptainer
+      #   uses: eWaterCycle/setup-apptainer@v2
+
+      - name: Setup Mamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          cache-environment: true
+          post-cleanup: 'all'
+          environment-file: env.yml
+          init-shell: bash
+      
+      - name: Install local python package
+        run: |
+          pip install . --no-deps
+        shell: micromamba-shell {0}
+
+      # - name: Setup Python
+      #   uses: actions/setup-python@v4
+      #   with:
+      #     python-version: '3.11'
+      
+      # - name: Install python dependencies
+      #   run: |
+      #     pip install requests
+      
+      
+      
+      - name: build containers
+        run: |
+          python containers/build_containers.py
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: micromamba-shell {0}
