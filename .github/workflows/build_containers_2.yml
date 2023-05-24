@@ -62,7 +62,7 @@ jobs:
       
       - name: zip built containers
         run: |
-          tar -czvf containers.tar.gz ./containers/*.sif ./containers/*.json
+          tar -czvf ./containers/containers.tar.gz ./containers/*.sif ./containers/*.json
 
       - name: list directory contents
         run: |
@@ -87,6 +87,10 @@ jobs:
       - name: list directory contents
         run: |
           ls -l ./containers/
+      
+      - name: unzip built containers
+        run: |
+          tar -xzvf ./containers/containers.tar.gz
 
       # - name: Setup Apptainer
       #   uses: eWaterCycle/setup-apptainer@v2
