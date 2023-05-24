@@ -67,7 +67,7 @@ jobs:
       - name: zip built containers
         run: |
           cd ./containers/
-          tar -czvf containers.tar.gz builtcontainers.json $(echo *.sif)
+          tar -czvf containers.tar.gz builtcontainers.json $(find . -type f -name "*.sif" -printf '%f ')
 
       - name: list directory contents
         run: |
