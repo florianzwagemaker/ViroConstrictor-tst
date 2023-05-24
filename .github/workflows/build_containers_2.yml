@@ -66,7 +66,8 @@ jobs:
       
       - name: zip built containers
         run: |
-          tar -czvf ./containers/containers.tar.gz ./containers/*.sif ./containers/*.json
+          cd ./containers/
+          tar -czvf containers.tar.gz builtcontainers.json $(echo *.sif)
 
       - name: list directory contents
         run: |
@@ -87,6 +88,10 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: built_containers
+
+      - name: move artifact
+        run: |
+          mv ./containers.tar.gz ./containers/containers.tar.gz
       
       - name: list directory contents
         run: |
