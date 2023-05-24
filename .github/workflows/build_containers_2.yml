@@ -49,12 +49,19 @@ jobs:
       
       
       
-      - name: build containers
+      # - name: build containers
+      #   run: |
+      #     python containers/build_containers.py
+      #   env:
+      #     TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #   shell: micromamba-shell {0}
+
+      - name: mock_build_containers
         run: |
-          python containers/build_containers.py
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: micromamba-shell {0}
+          touch ./containers/container1.sif
+          touch ./containers/container2.sif
+          touch ./containers/container3.sif
+          touch ./containers/builtcontainers.json
       
       - name: list directory contents
         run: |
@@ -82,15 +89,15 @@ jobs:
       
       - uses: actions/download-artifact@v3
         with:
-          path: ./containers/
+          name: built_containers
       
       - name: list directory contents
         run: |
-          ls -l ./containers/
+          ls -R ./
       
-      - name: unzip built containers
-        run: |
-          tar -xzvf ./containers/containers.tar.gz
+      # - name: unzip built containers
+      #   run: |
+      #     tar -xzvf ./containers/containers.tar.gz
 
       # - name: Setup Apptainer
       #   uses: eWaterCycle/setup-apptainer@v2
