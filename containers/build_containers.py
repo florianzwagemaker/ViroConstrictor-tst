@@ -109,5 +109,5 @@ if __name__ == "__main__":
 
         print(recipe_basename)
         print(container_basename)
-    with open("builtcontainers.json", "w") as f:
+    with open(f"{base_path_to_container_defs}/builtcontainers.json", "w") as f:
         json.dump(builtcontainers, f, indent=4)
