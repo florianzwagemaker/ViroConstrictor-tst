@@ -63,7 +63,9 @@ jobs:
       
       - name: unzip built containers
         run: |
+          cd ./containers/
           tar -xzvf ./containers/containers.tar.gz
+          cd ..
 
       - name: Setup Apptainer
         uses: eWaterCycle/setup-apptainer@v2
@@ -109,7 +111,9 @@ jobs:
 
       - name: unzip built containers
         run: |
+          cd ./containers/
           tar -xzvf ./containers/containers.tar.gz
+          cd ..
 
       - name: Setup Mamba
         uses: mamba-org/setup-micromamba@v1
