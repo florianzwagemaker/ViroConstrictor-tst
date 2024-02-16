@@ -64,7 +64,7 @@ jobs:
       - name: unzip built containers
         run: |
           cd ./containers/
-          tar -xzvf ./containers/containers.tar.gz
+          tar -xzvf containers.tar.gz
           cd ..
 
       - name: Setup Apptainer
@@ -112,7 +112,7 @@ jobs:
       - name: unzip built containers
         run: |
           cd ./containers/
-          tar -xzvf ./containers/containers.tar.gz
+          tar -xzvf containers.tar.gz
           cd ..
 
       - name: Setup Mamba
