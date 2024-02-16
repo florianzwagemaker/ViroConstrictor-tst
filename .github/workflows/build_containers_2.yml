@@ -81,6 +81,10 @@ jobs:
           pip install . --no-deps
         shell: micromamba-shell {0}
 
+      - name: list directory contents
+        run: |
+          ls -R ./
+
       - name: convert containers
         run: |
           python containers/convert_artifact_containers_for_apptainer.py
