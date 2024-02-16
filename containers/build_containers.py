@@ -61,13 +61,13 @@ def get_hashes(
     script_hashes = {}
     for script_file in script_files:
         with open(script_file, "rb") as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()[:6]
+            file_hash = hashlib.sha256(f.read()).hexdigest()[:6]
             script_hashes[script_file] = file_hash
 
     config_hashes = {}
     for config_file in config_files:
         with open(config_file, "rb") as f:
-            file_hash = hashlib.md5(f.read()).hexdigest()[:6]
+            file_hash = hashlib.sha256(f.read()).hexdigest()[:6]
             config_hashes[config_file] = file_hash
 
     # sort the hashes of the scripts and the configs
@@ -75,16 +75,16 @@ def get_hashes(
     config_hashes = dict(sorted(config_hashes.items()))
 
     # join the hashes of the scripts and the configs (the values of the dictionaries), make a new hash of the joined hashes
-    merged_hashes = hashlib.md5(
+    merged_hashes = hashlib.sha256(
         "".join(list(script_hashes.values()) + list(config_hashes.values())).encode()
     ).hexdigest()[:6]
 
     hashes = {}
     for recipe_file in recipe_files:
         with open(recipe_file, "rb") as f:
-            recipe_hash = hashlib.md5(f.read()).hexdigest()[:6]
+            recipe_hash = hashlib.sha256(f.read()).hexdigest()[:6]
             # add the merged hash to the recipe hash and make a new hash of the joined hashes
-            file_hash = hashlib.md5((recipe_hash + merged_hashes).encode()).hexdigest()[
+            file_hash = hashlib.sha256((recipe_hash + merged_hashes).encode()).hexdigest()[
                 :6
             ]
             hashes[recipe_file] = file_hash
@@ -165,6 +165,7 @@ LABEL Maintainer="RIVM-bioinformatics team"
 LABEL Associated_pipeline="{__prog__}"
 LABEL version="{VersionHash}"
 LABEL org.opencontainers.image.authors="ids-bioinformatics@rivm.nl"
+LABEL org.opencontainers.image.source=https://github.com/RIVM-bioinformatics/{__prog__}
 
     """
                 )
@@ -190,7 +191,7 @@ LABEL org.opencontainers.image.authors="ids-bioinformatics@rivm.nl"
                     "docker",
                     "save",
                     "-o",
-                    f"{base_path_to_container_defs}/{container_basename}.tar",
+                    f"{base_path_to_container_defs}/{container_basename}:{VersionHash}.tar",
                     f"{container_basename}:{VersionHash}",
                 ]
             )
