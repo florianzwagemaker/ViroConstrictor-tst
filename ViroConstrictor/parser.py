@@ -4,10 +4,11 @@ import os
 import pathlib
 import re
 import sys
-from typing import Any, Hashable
+from typing import Any, Hashable, List
 
 import numpy as np
 import pandas as pd
+import rich
 
 from ViroConstrictor import __prog__, __version__
 from ViroConstrictor.functions import FlexibleArgFormatter, RichParser
@@ -57,6 +58,7 @@ class CLIparser:
             self.workdir,
             self.exec_start_path,
             self.snakefile,
+            self.match_ref_snakefile,
         ) = self._get_paths_for_workflow(self.flags)
         if not self.samples_dict:
             sys.exit(1)
@@ -260,6 +262,14 @@ class CLIparser:
         )
 
         optional_args.add_argument(
+            "--segmented",
+            "-seg",
+            default=False,
+            action="store_true",
+            help="Use this flag in combination with match-ref to indicate that the match-ref process should take segmented reference information into account. Please note that specific formatting is required for the reference fasta file, see the docs for more info.",
+        )
+
+        optional_args.add_argument(
             "--min-coverage",
             "-mc",
             default=30,
@@ -332,7 +342,7 @@ class CLIparser:
         )
 
         if not givenargs:
-            log.error(
+            rich.print(
                 f"{parser.prog} was called but no arguments were given, please try again\nUse '[cyan]{parser.prog} -h[/cyan]' to see the help document"
             )
             sys.exit(1)
@@ -360,6 +370,7 @@ class CLIparser:
             req_cols = check_samplesheet_columns(df)
             if req_cols is False:
                 sys.exit(1)
+            df = samplesheet_enforce_absolute_paths(df)
             if df.get("PRESET") is None:
                 df[["PRESET", "PRESET_SCORE"]] = df.apply(
                     lambda x: pd.Series(
@@ -445,6 +456,10 @@ class CLIparser:
                     ),
                     axis=1,
                 )
+            if df.get("MATCH-REF") is None:
+                df["MATCH-REF"] = args.match_ref
+            if df.get("SEGMENTED") is None:
+                df["SEGMENTED"] = args.segmented
             df = pd.DataFrame.replace(df, np.nan, None)
             return df.to_dict(orient="index")
         return args_to_df(args, indirFrame).to_dict(orient="index")
@@ -489,7 +504,7 @@ class CLIparser:
 
     def _get_paths_for_workflow(
         self, flags: argparse.Namespace
-    ) -> tuple[str, str, str, str]:
+    ) -> tuple[str, str, str, str, str]:
         """Takes the input and output paths from the command line, and then creates the working directory if
         it doesn't exist. It then changes the current working directory to the working directory
 
@@ -509,13 +524,59 @@ class CLIparser:
         snakefile: str = os.path.join(
             os.path.abspath(os.path.dirname(__file__)), "workflow", "workflow.smk"
         )
+        match_ref_snakefile: str = os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "workflow", "match_ref.smk"
+        )
 
         if not os.path.exists(working_directory):
             os.makedirs(working_directory)
         if os.getcwd() != working_directory:
             os.chdir(working_directory)
 
-        return input_path, working_directory, exec_start_path, snakefile
+        return (
+            input_path,
+            working_directory,
+            exec_start_path,
+            snakefile,
+            match_ref_snakefile,
+        )
+
+
+def samplesheet_enforce_absolute_paths(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure the columns in the dataframe which may contain paths are always absolute paths.
+    This is necessary as the pipeline may be run from different working directories.
+    The columns are "PRIMERS", "FEATURES", "REFERENCE".
+    If the value is "NONE", it is left as is.
+    If the value is a relative path, it is converted to an absolute path.
+    If the value is an absolute path, it is left as is.
+    If there is a '~' in the path, it is expanded to the user's home directory.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The dataframe to enforce absolute paths on.
+
+    Returns
+    -------
+    pd.DataFrame
+        The modified dataframe with enforced absolute paths.
+
+    Raises
+    ------
+    TypeError
+        If the input argument is not a pandas DataFrame.
+
+    """
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError("Input argument must be a pandas DataFrame.")
+    columns_to_enforce: List[str] = ["PRIMERS", "FEATURES", "REFERENCE"]
+    for column in columns_to_enforce:
+        if column in df.columns:
+            df[column] = df[column].apply(
+                lambda x: os.path.abspath(os.path.expanduser(x)) if x != "NONE" else x
+            )
+    return df
 
 
 def file_exists(path: str) -> bool:
@@ -672,7 +733,7 @@ def check_samplesheet_rows(df: pd.DataFrame) -> pd.DataFrame:
 
     Returns
     -------
-        A dataframe with the columns: SAMPLE, VIRUS, PRIMERS, REFERENCE, FEATURES, MATCH-REF, MIN-COVERAGE,
+        A dataframe with the columns: SAMPLE, VIRUS, PRIMERS, REFERENCE, FEATURES, MATCH-REF, SEGMENTED, MIN-COVERAGE,
     PRIMER-MISMATCH-RATE
 
     """
@@ -710,6 +771,12 @@ def check_samplesheet_rows(df: pd.DataFrame) -> pd.DataFrame:
         "MATCH-REF": {
             "dtype": bool,
             "required": True,
+            "disallowed_characters": None,
+            "path": False,
+        },
+        "SEGMENTED": {
+            "dtype": bool,
+            "required": False,
             "disallowed_characters": None,
             "path": False,
         },
@@ -863,9 +930,12 @@ def args_to_df(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFrame:
     """
     df["VIRUS"] = args.target
     df["MATCH-REF"] = args.match_ref
+    df["SEGMENTED"] = args.segmented
     df["PRIMERS"] = os.path.abspath(args.primers) if args.primers != "NONE" else "NONE"
     df["REFERENCE"] = os.path.abspath(args.reference)
-    df["FEATURES"] = os.path.abspath(args.features) if args.features != "NONE" else "NONE"
+    df["FEATURES"] = (
+        os.path.abspath(args.features) if args.features != "NONE" else "NONE"
+    )
     df["MIN-COVERAGE"] = args.min_coverage
     df["PRIMER-MISMATCH-RATE"] = args.primer_mismatch_rate
     df[["PRESET", "PRESET_SCORE"]] = match_preset_name(args.target, args.presets)

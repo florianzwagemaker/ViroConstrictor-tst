@@ -237,7 +237,7 @@ logmessage_strings_info: dict[str, Any] = {
     "Submitted DRMAA job": SubmitDRMAAMessage,
     "Nothing to be done (all requested files are present and up to date).": BaseLogMessage,
 }
-logmessage_strings_warning: list[str] = [
+logmessage_suppressed_strings_warning: list[str] = [
     "Your conda installation is not configured to use strict channel priorities."
 ]
 
@@ -257,6 +257,7 @@ def snakemake_logger(logfile: str) -> object:
         The function `snakemake_logger` returns a function object `log_handler`.
 
     """
+
     def log_handler(msg: dict) -> None:
         loglevel = msg.get("level")
         logmessage = msg.get("msg")
@@ -266,6 +267,11 @@ def snakemake_logger(logfile: str) -> object:
         if loglevel == "debug":
             return None
         if loglevel == "shellcmd":
+            return None
+
+        if logmessage is not None and any(
+            x for x in logmessage_suppressed_strings_warning if x in logmessage
+        ):
             return None
 
         if logmessage is not None and any(
