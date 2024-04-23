@@ -172,7 +172,7 @@ rule prepare_refs:
 
 rule prepare_primers:
     input:
-        prm=lambda wc: SAMPLES[wc.sample]["PRIMERS"],
+        prm=lambda wc: "" if SAMPLES[wc.sample]["PRIMERS"].endswith(".bed") else SAMPLES[wc.sample]["PRIMERS"],
         ref=rules.prepare_refs.output,
     output:
         bed=f"{datadir}{wc_folder}{prim}" "{sample}_primers.bed",
@@ -184,22 +184,38 @@ rule prepare_primers:
         f"{logdir}{bench}prepare_primers_" "{Virus}.{RefID}.{sample}.txt"
     params:
         pr_mm_rate=lambda wc: SAMPLES[wc.sample]["PRIMER-MISMATCH-RATE"],
-        script=srcdir("scripts/filter_bed_input.py"),
     conda:
         f"{conda_envs}Clean.yaml"
     shell:
         """
-        if [[ {input.prm} == *.bed ]]; then
-            python {params.script} {input.prm} {output.bed} {wildcards.RefID}
-        else
-            python -m AmpliGone.fasta2bed \
-                --primers {input.prm} \
-                --reference {input.ref} \
-                --output {output.bed} \
-                --primer-mismatch-rate {params.pr_mm_rate} > {log}
-        fi
+        python -m AmpliGone.fasta2bed \
+            --primers {input.prm} \
+            --reference {input.ref} \
+            --output {output.bed} \
+            --primer-mismatch-rate {params.pr_mm_rate} > {log}
         """
 
+ruleorder: prepare_primers > filter_primer_bed
+
+rule filter_primer_bed:
+    input:
+        prm=lambda wc: SAMPLES[wc.sample]["PRIMERS"],
+    output:
+        bed=f"{datadir}{wc_folder}{prim}" "{sample}_primers.bed",
+    resources:
+        mem_mb=low_memory_job,
+    log:
+        f"{logdir}prepare_primers_" "{Virus}.{RefID}.{sample}.log",
+    benchmark:
+        f"{logdir}{bench}prepare_primers_" "{Virus}.{RefID}.{sample}.txt"
+    params:
+        script=srcdir("scripts/filter_bed_input.py"),
+    conda:
+        f"{conda_envs}Scripts.yaml"
+    shell:
+        """
+        python {params.script} {input.prm} {output.bed} {wildcards.RefID}
+        """
 
 rule prepare_gffs:
     input:
@@ -212,7 +228,7 @@ rule prepare_gffs:
     benchmark:
         f"{logdir}{bench}prepare_gffs_" "{Virus}.{RefID}.{sample}.txt"
     conda:
-        f"{conda_envs}ORF_analysis.yaml"
+        f"{conda_envs}Scripts.yaml"
     resources:
         mem_mb=low_memory_job,
     params:
@@ -268,7 +284,7 @@ if config["platform"] in ["nanopore", "iontorrent"]:
             html=f"{datadir}{qc_pre}" "{sample}_fastqc.html",
             zip=f"{datadir}{qc_pre}" "{sample}_fastqc.zip",
         conda:
-            f"{conda_envs}Clean.yaml"
+            f"{conda_envs}Scripts.yaml"
         log:
             f"{logdir}QC_raw_data_" "{sample}.log",
         benchmark:
@@ -278,7 +294,7 @@ if config["platform"] in ["nanopore", "iontorrent"]:
             mem_mb=low_memory_job,
         params:
             output_dir=f"{datadir}{qc_pre}",
-            script=srcdir("scripts/fastqc_wrapper.sh"),
+            script=srcdir("wrappers/fastqc_wrapper.sh"),
         shell:
             """
             bash {params.script} {input} {params.output_dir} {output.html} {output.zip} {log}
@@ -329,7 +345,7 @@ if config["platform"] == "illumina":
             html=f"{datadir}{qc_pre}" "{sample}_{read}_fastqc.html",
             zip=f"{datadir}{qc_pre}" "{sample}_{read}_fastqc.zip",
         conda:
-            f"{conda_envs}Clean.yaml"
+            f"{conda_envs}Scripts.yaml"
         log:
             f"{logdir}" "QC_raw_data_{sample}_{read}.log",
         benchmark:
@@ -339,7 +355,7 @@ if config["platform"] == "illumina":
             mem_mb=low_memory_job,
         params:
             output_dir=f"{datadir}{qc_pre}",
-            script=srcdir("scripts/fastqc_wrapper.sh"),
+            script=srcdir("wrappers/fastqc_wrapper.sh"),
         shell:
             """
             bash {params.script} {input} {params.output_dir} {output.html} {output.zip} {log}
@@ -387,7 +403,7 @@ rule remove_adapters_p2:
     output:
         f"{datadir}{wc_folder}{cln}{noad}" "{sample}.fastq",
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: config["threads"]["AdapterRemoval"]
     resources:
         mem_mb=low_memory_job,
@@ -503,7 +519,7 @@ rule qc_clean:
         html=f"{datadir}{wc_folder}{qc_post}" "{sample}_fastqc.html",
         zip=f"{datadir}{wc_folder}{qc_post}" "{sample}_fastqc.zip",
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     log:
         f"{logdir}QC_clean_" "{Virus}.{RefID}.{sample}.log",
     benchmark:
@@ -513,7 +529,7 @@ rule qc_clean:
         mem_mb=low_memory_job,
     params:
         outdir=f"{datadir}{wc_folder}{qc_post}",
-        script=srcdir("scripts/fastqc_wrapper.sh"),
+        script=srcdir("wrappers/fastqc_wrapper.sh"),
     shell:
         """
         bash {params.script} {input} {params.outdir} {output.html} {output.zip} {log}
@@ -694,7 +710,7 @@ rule concat_aminoacids:
     resources:
         mem_mb=low_memory_job,
     conda:
-        f"{conda_envs}ORF_analysis.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: 1
     params:
         script=srcdir("scripts/group_aminoacids.py"),
@@ -708,7 +724,7 @@ rule vcf_to_tsv:
     output:
         tsv=temp(f"{datadir}{wc_folder}{aln}{vf}" "{sample}.tsv"),
     conda:
-        f"{conda_envs}Consensus.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: config["threads"]["Index"]
     resources:
         mem_mb=low_memory_job,
@@ -783,7 +799,7 @@ rule calculate_amplicon_cov:
     resources:
         mem_mb=low_memory_job,
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     params:
         script=srcdir("scripts/amplicon_covs.py"),
     shell:
@@ -808,7 +824,7 @@ rule concat_amplicon_cov:
     resources:
         mem_mb=low_memory_job,
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     params:
         script=srcdir("scripts/concat_amplicon_covs.py"),
     shell:

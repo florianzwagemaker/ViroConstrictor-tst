@@ -278,7 +278,7 @@ rule count_mapped_reads:
     output:
         temp(f"{datadir}{matchref}{wc_folder}" "{sample}_count.csv"),
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: 1
     resources:
         mem=low_memory_job,
@@ -300,7 +300,7 @@ rule filter_best_matching_ref:
         filtref=temp(f"{datadir}{matchref}{wc_folder}" "{sample}_best_ref.fasta"),
         filtcount=temp(f"{datadir}{matchref}{wc_folder}" "{sample}_best_ref.csv"),
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: 1
     resources:
         mem=low_memory_job,
@@ -342,7 +342,7 @@ rule group_and_rename_refs:
         groupedrefs=f"{datadir}{matchref}" "{sample}_refs.fasta",
         groupedstats=temp(f"{datadir}{matchref}" "{sample}_refs.csv"),
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     threads: 1
     resources:
         mem=low_memory_job,
@@ -368,6 +368,8 @@ rule filter_gff:
         mem=low_memory_job,
     log:
         f"{logdir}FilterGFF_" "{sample}.log",
+    conda:
+        f"{conda_envs}Scripts.yaml"
     params:
         script=srcdir("scripts/match_ref/filter_gff.py"),
     shell:
@@ -392,11 +394,40 @@ rule touch_gff:
         touch {output.gff}
         """
 
+rule filter_fasta2bed:
+    input:
+        ref=rules.group_and_rename_refs.output.groupedrefs,
+        refdata=rules.filter_gff.output.groupedstats,
+        prm=lambda wc: "" if SAMPLES[wc.sample]["PRIMERS"].endswith(".bed") else SAMPLES[wc.sample]["PRIMERS"],
+    output:
+        bed=f"{datadir}{matchref}" "{sample}_primers.bed",
+        groupedstats=temp(f"{datadir}{matchref}" "{sample}_data2.csv"),
+    conda:
+        f"{conda_envs}Clean.yaml"
+    threads: 1
+    resources:
+        mem_mb=low_memory_job,
+    log:
+        f"{logdir}Fasta2Bed_" "{sample}.log",
+    params:
+        pr_mm_rate=lambda wc: SAMPLES[wc.sample]["PRIMER-MISMATCH-RATE"],
+    shell:
+        """
+        python -m AmpliGone.fasta2bed \
+            --primers {input.prm} \
+            --reference {input.ref} \
+            --output {output.bed} \
+            --primer-mismatch-rate {params.pr_mm_rate} > {log}
+        awk -F ',' -v OFS=',' '{{ $(NF+1) = (NR==1 ? "Primer_file" : "{output.bed}"); print }}' {input.refdata} > {output.groupedstats}
+        """
+
+ruleorder: filter_fasta2bed > filter_bed > touch_primers
+
+
 rule filter_bed:
     input:
         prm=lambda wc: SAMPLES[wc.sample]["PRIMERS"],
         refdata=rules.filter_gff.output.groupedstats,
-        ref=rules.group_and_rename_refs.output.groupedrefs,
     output:
         bed=f"{datadir}{matchref}" "{sample}_primers.bed",
         groupedstats=temp(f"{datadir}{matchref}" "{sample}_data2.csv"),
@@ -406,25 +437,14 @@ rule filter_bed:
     log:
         f"{logdir}FilterBed_" "{sample}.log",
     params:
-        pr_mm_rate=lambda wc: SAMPLES[wc.sample]["PRIMER-MISMATCH-RATE"],
         script=srcdir("scripts/match_ref/filter_bed.py"),
     conda:
-        f"{conda_envs}Clean.yaml"
+        f"{conda_envs}Scripts.yaml"
     shell:
         """
-        if [[ {input.prm} == *.bed ]]; then
-            python {params.script} {input.prm} {input.refdata} {output.bed} {output.groupedstats}
-        else
-            python -m AmpliGone.fasta2bed \
-                --primers {input.prm} \
-                --reference {input.ref} \
-                --output {output.bed} \
-                --primer-mismatch-rate {params.pr_mm_rate} > {log}
-            awk -F"," 'BEGIN {{ OFS = "," }} {{$6="{output.bed}"; print}}' {input.refdata} > {output.groupedstats}
-        fi
+        python {params.script} {input.prm} {input.refdata} {output.bed} {output.groupedstats}
         """
 
-ruleorder: filter_bed > touch_primers
 
 rule touch_primers:
     input:

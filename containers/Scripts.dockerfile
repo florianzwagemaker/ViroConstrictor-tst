@@ -1,10 +1,10 @@
 FROM mambaorg/micromamba:latest
 
-COPY ./ViroConstrictor/workflow/envs/Clean.yaml /install.yml
+COPY ./ViroConstrictor/workflow/envs/Consensus.yaml /install.yml
 COPY ./ViroConstrictor/workflow/files/ /files/
 COPY ./ViroConstrictor/workflow/wrappers/ /wrappers/
 
-LABEL org.opencontainers.image.description="Data cleaning processes and tools for the ViroConstrictor workflow."
+LABEL org.opencontainers.image.description="Supplementary scripts for the ViroConstrictor workflow."
 
 USER root
 

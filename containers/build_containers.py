@@ -83,6 +83,9 @@ def get_hashes(
     for recipe_file in recipe_files:
         with open(recipe_file, "rb") as f:
             recipe_hash = hashlib.sha256(f.read()).hexdigest()[:6]
+            if os.path.basename(recipe_file).split(".")[0] != "Scripts":
+                hashes[recipe_file] = recipe_hash
+                continue
             # add the merged hash to the recipe hash and make a new hash of the joined hashes
             file_hash = hashlib.sha256((recipe_hash + merged_hashes).encode()).hexdigest()[
                 :6
