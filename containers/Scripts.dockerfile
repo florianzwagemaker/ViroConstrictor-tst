@@ -1,8 +1,9 @@
 FROM mambaorg/micromamba:latest
 
-COPY ./ViroConstrictor/workflow/envs/Consensus.yaml /install.yml
+COPY ./ViroConstrictor/workflow/envs/Scripts.yaml /install.yml
 COPY ./ViroConstrictor/workflow/files/ /files/
 COPY ./ViroConstrictor/workflow/wrappers/ /wrappers/
+COPY ./ViroConstrictor/workflow/scripts/ /scripts/
 
 LABEL org.opencontainers.image.description="Supplementary scripts for the ViroConstrictor workflow."
 
