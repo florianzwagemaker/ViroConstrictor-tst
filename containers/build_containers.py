@@ -37,11 +37,14 @@ def fetch_recipes(recipe_folder: str) -> List[str]:
 
 
 def fetch_scripts(script_folder: str) -> List[str]:
-    return [
-        os.path.abspath(os.path.join(script_folder, file))
-        for file in os.listdir(script_folder)
-        if file.endswith(".py")
-    ]
+    script_files = []
+    for root, dirs, files in os.walk(script_folder):
+        script_files.extend(
+            os.path.abspath(os.path.join(root, file))
+            for file in files
+            if file.endswith(".py")
+        )
+    return script_files
 
 
 def fetch_files(file_folder: str) -> List[str]:
@@ -87,9 +90,9 @@ def get_hashes(
                 hashes[recipe_file] = recipe_hash
                 continue
             # add the merged hash to the recipe hash and make a new hash of the joined hashes
-            file_hash = hashlib.sha256((recipe_hash + merged_hashes).encode()).hexdigest()[
-                :6
-            ]
+            file_hash = hashlib.sha256(
+                (recipe_hash + merged_hashes).encode()
+            ).hexdigest()[:6]
             hashes[recipe_file] = file_hash
 
     return hashes
