@@ -32,7 +32,7 @@ jobs:
           - name: unzip built containers
             run: |
               cd ./containers/
-              unzip containers.tar.gz
+              unzip containers.zip
               cd ..
         
           - name: list directory contents
