@@ -18,12 +18,12 @@ jobs:
               github_token: ${{ secrets.GITHUB_TOKEN }}
               workflow: build_containers_2.yml
               name: built_containers
-              skip_unpack: true
+              skip_unpack: false
               allow_forks: false
     
           - name: move artifact
             run: |
-              mv ./built_containers.zip ./containers/containers.zip
+              mv ./containers.tar.gz ./containers/containers.tar.gz
     
           - name: list directory contents
             run: |
@@ -32,7 +32,7 @@ jobs:
           - name: unzip built containers
             run: |
               cd ./containers/
-              unzip containers.zip
+              tar -xzvf containers.tar.gz
               cd ..
         
           - name: list directory contents
