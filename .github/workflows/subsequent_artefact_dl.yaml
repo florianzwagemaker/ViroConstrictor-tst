@@ -19,10 +19,11 @@ jobs:
               workflow: build_containers_2.yml
               name: built_containers
               skip_unpack: true
+              allow_forks: false
     
           - name: move artifact
             run: |
-              mv ./containers.tar.gz ./containers/containers.tar.gz
+              mv ./built_containers.zip ./containers/containers.zip
     
           - name: list directory contents
             run: |
@@ -31,8 +32,12 @@ jobs:
           - name: unzip built containers
             run: |
               cd ./containers/
-              tar -xzvf containers.tar.gz
+              unzip containers.tar.gz
               cd ..
+        
+          - name: list directory contents
+            run: |
+              ls -R ./
     
           - name: Setup Mamba
             uses: mamba-org/setup-micromamba@v1
