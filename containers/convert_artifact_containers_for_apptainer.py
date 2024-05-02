@@ -1,5 +1,4 @@
 import json
-import os
 import shutil
 import subprocess
 from typing import List
@@ -13,7 +12,7 @@ if __name__ == "__main__":
     with open(f"{base_path_to_container_defs}/builtcontainers.json", "r") as f:
         builtcontainers: List = json.load(f)
 
-    builtcontainers_trimmed = [container.split(":")[0] for container in builtcontainers]
+    builtcontainers_trimmed = [container.replace(":", "_") for container in builtcontainers]
 
     for original_name, trimmed_name in zip(builtcontainers, builtcontainers_trimmed):
         print(f"Renaming {original_name} to {trimmed_name}")
@@ -21,8 +20,9 @@ if __name__ == "__main__":
             f"{base_path_to_container_defs}/{original_name}.tar",
             f"{base_path_to_container_defs}/{trimmed_name}.tar",
         )
+        trimmed_name_sif = trimmed_name.replace(":", "_")
         print(f"Converting {original_name} to Apptainer .sif format")
         subprocess.run(
-            f"apptainer build {base_path_to_container_defs}/{original_name}.sif docker-archive://{base_path_to_container_defs}/{trimmed_name}.tar",
+            f"apptainer build {base_path_to_container_defs}/{trimmed_name_sif}.sif docker-archive://{base_path_to_container_defs}/{trimmed_name}.tar",
             shell=True,
         )

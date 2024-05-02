@@ -90,6 +90,10 @@ jobs:
       - name: convert containers
         run: |
           python containers/convert_artifact_containers_for_apptainer.py
+      
+      - name: list directory contents
+        run: |
+          ls -R ./
 
       # download already built containers
       ## rest of the testing suite here
