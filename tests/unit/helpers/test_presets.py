@@ -6,6 +6,8 @@ DEFAULT preset values, and failure handling.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 import ViroConstrictor.workflow.helpers.presets as presets
@@ -166,3 +168,10 @@ def test_get_preset_parameter_raises_when_parameter_missing_in_default(monkeypat
             parameter_name="Missing_Parameter",
             stage_identifier="STAGE_MAIN",
         )
+
+
+def test_load_preset_data_raises_importerror_when_package_absent() -> None:
+    """_load_preset_data must raise ImportError with install instructions when viroconstrictor_data is absent."""
+    with patch("importlib.resources.files", side_effect=ModuleNotFoundError("No module named 'viroconstrictor_data'")):
+        with pytest.raises(ImportError, match="viroconstrictor-data is not installed"):
+            presets._load_preset_data()
