@@ -25,7 +25,9 @@ from snakemake.settings.enums import Quietness
 from snakemake_interface_executor_plugins.settings import ExecMode
 from snakemake_interface_logger_plugins.settings import LogHandlerSettingsBase
 
-from ViroConstrictor import __prog__
+from packaging.specifiers import SpecifierSet
+
+from ViroConstrictor import __prog__, __version__
 from ViroConstrictor.logging import log
 from ViroConstrictor.parser import CLIparser
 from ViroConstrictor.scheduler import Scheduler
@@ -33,6 +35,25 @@ from ViroConstrictor.workflow.helpers.containers import (
     construct_container_bind_args,
     download_containers,
 )
+
+
+def _check_data_compatibility() -> None:
+    """Verify that the installed viroconstrictor-data package is compatible with this version of ViroConstrictor."""
+    try:
+        import viroconstrictor_data
+    except ModuleNotFoundError:
+        raise SystemExit(
+            "viroconstrictor-data is not installed.\n"
+            "Run: pip install 'viroconstrictor-data' to install."
+        ) from None
+    manifest = viroconstrictor_data.get_manifest()
+    specifier = SpecifierSet(manifest["compatible_viroconstrictor"])
+    if __version__ not in specifier:
+        raise SystemExit(
+            f"viroconstrictor-data is not compatible with ViroConstrictor {__version__}.\n"
+            f"Compatible ViroConstrictor range: {manifest['compatible_viroconstrictor']}\n"
+            f"Run: pip install 'viroconstrictor-data' to update."
+        )
 
 
 def correct_unidirectional_flag(samples_dict: dict[Hashable, Any], flags: Namespace) -> bool:
@@ -158,6 +179,8 @@ class WorkflowConfig:
         outdir_override: str = "",
         vc_stage: str | None = None,
     ) -> None:
+        _check_data_compatibility()
+
         self.inputs = parsed_inputs
         self.outdir_override = outdir_override
         self.configuration = self.inputs.user_config

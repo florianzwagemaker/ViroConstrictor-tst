@@ -1,7 +1,7 @@
 import difflib
+import importlib.resources
 import inspect
 import json
-import os
 import re
 from collections import defaultdict
 from typing import Any, List, Tuple
@@ -10,11 +10,21 @@ from rich import print
 
 from ViroConstrictor.logging import log
 
-# Load the preset aliases from a JSON file (preset_aliases.json)
-aliases = json.load(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), "preset_aliases.json")))
 
-# Load the preset parameters from a JSON file (preset_params.json)
-presets = json.load(open(os.path.join(os.path.abspath(os.path.dirname(__file__)), "preset_params.json")))
+def _load_preset_data() -> tuple[dict, dict]:
+    try:
+        pkg = importlib.resources.files("viroconstrictor_data") / "presets"
+        params = json.loads((pkg / "preset_params.json").read_text(encoding="utf-8"))
+        preset_aliases = json.loads((pkg / "preset_aliases.json").read_text(encoding="utf-8"))
+        return params, preset_aliases
+    except ModuleNotFoundError:
+        raise ImportError(
+            "viroconstrictor-data is not installed. "
+            "Run: pip install 'viroconstrictor-data>=0.0.1'"
+        ) from None
+
+
+presets, aliases = _load_preset_data()
 
 
 def get_key_from_value(d: dict, value: str) -> str | None:
