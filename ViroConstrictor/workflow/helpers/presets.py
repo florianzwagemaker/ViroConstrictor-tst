@@ -12,34 +12,72 @@ from ViroConstrictor.logging import log
 
 
 def _load_preset_data() -> tuple[dict, dict]:
+    """Load preset parameters and aliases from viroconstrictor-data package.
+
+    Returns
+    -------
+    tuple[dict, dict]
+        A tuple containing:
+        - preset_params : dict
+            Preset parameter definitions.
+        - preset_aliases : dict
+            Preset alias mappings.
+
+    Raises
+    ------
+    ImportError
+        If viroconstrictor-data package is not installed.
+
+    Examples
+    --------
+    Load presets and aliases from the installed viroconstrictor-data package:
+
+    >>> params, aliases = _load_preset_data()
+    >>> "SARSCOV2" in params
+    True
+    >>> "INFLUENZA" in params
+    True
+
+    """
     try:
         pkg = importlib.resources.files("viroconstrictor_data") / "presets"
         params = json.loads((pkg / "preset_params.json").read_text(encoding="utf-8"))
         preset_aliases = json.loads((pkg / "preset_aliases.json").read_text(encoding="utf-8"))
         return params, preset_aliases
     except ModuleNotFoundError:
-        raise ImportError(
-            "viroconstrictor-data is not installed. "
-            "Run: pip install 'viroconstrictor-data>=0.0.1'"
-        ) from None
+        raise ImportError("viroconstrictor-data is not installed. " "Run: pip install 'viroconstrictor-data>=0.0.1'") from None
 
 
 presets, aliases = _load_preset_data()
 
 
 def get_key_from_value(d: dict, value: str) -> str | None:
-    """This function finds the key in a dictionary which has a value matching the input value.
+    """Find the key in a dictionary containing a matching value.
 
     Parameters
     ----------
-    d
+    d : dict
         The dictionary to search.
-    value
+    value : str
         The value to search for.
 
     Returns
     -------
-    The key from the dictionary which has the input value.
+    str or None
+        The key from the dictionary with the input value, or None if not found.
+
+    Examples
+    --------
+    Find a key containing a specific value in a dictionary:
+
+    >>> data = {"virus": ["SARSCOV2", "COVID-19"], "platform": ["Nanopore", "Illumina"]}
+    >>> get_key_from_value(data, "SARSCOV2")
+    'virus'
+
+    Return None when the value is not found:
+
+    >>> get_key_from_value(data, "NonExistent") is None
+    True
 
     """
     for k, v in d.items():
@@ -48,27 +86,45 @@ def get_key_from_value(d: dict, value: str) -> str | None:
 
 
 def match_preset_name(targetname: str, use_presets: bool) -> Tuple[str, float]:
-    """The function takes a target name and a boolean flag as input, and returns a tuple containing the
-    best matching preset name and a score based on string similarity, or a default value if the flag is
-    False or no match is found with a high enough similarity score.
+    """Match a target name to the best matching preset using fuzzy string matching.
 
     Parameters
     ----------
     targetname : str
         The name of the target that needs to be matched with a preset name.
     use_presets : bool
-        A boolean parameter that determines whether to use preset values or not. If it is set to True, the
-    function will use preset values to match the targetname. If it is set to False, the function will
-    return a default value.
+        If True, match the targetname to available presets. If False, return DEFAULT with score 0.
 
     Returns
     -------
-        A tuple containing a string and a float. The string represents the matched preset name, and the
-    float represents the similarity score between the target name and the matched preset name. If the
-    use_presets parameter is False, the function returns the string "DEFAULT" and the float 0. If no
-    match is found with a similarity score greater than or equal to 0.4, the function returns the string
-    "DEFAULT" and the float 0. If a match is found with a similarity score greater than or equal to 0.4,
-    the function returns the matched preset name and the similarity score.
+    tuple[str, float]
+        A tuple containing the preset name and similarity score. If no match with similarity ≥ 0.4 is
+        found or use_presets is False, returns ("DEFAULT", 0.0).
+
+    Examples
+    --------
+    Match a target name with fuzzy matching enabled:
+
+    >>> preset, score = match_preset_name("sarscov2", use_presets=True)
+    >>> preset
+    'SARSCOV2'
+    >>> score
+    1.0
+
+    Fuzzy match with typo or variant spelling:
+
+    >>> preset, score = match_preset_name("SARS-COV-2", use_presets=True)
+    >>> preset
+    'SARSCOV2'
+    >>> score  # doctest: +SKIP
+    0.95  # High similarity but not perfect match
+
+    Return DEFAULT when presets are disabled:
+
+    >>> preset, score = match_preset_name("SARSCOV2", use_presets=False)
+    >>> (preset, score)
+    ('DEFAULT', 0.0)
+
     """
     if not use_presets:
         return "DEFAULT", float(0)
@@ -133,44 +189,72 @@ def collapse_preset_group(preset_name: str, stages: List[str], stage_identifier:
 
 
 def get_preset_parameter(preset_name: str, parameter_name: str, stage_identifier: str = "") -> Any:
-    """
-    Flexibly get predefined tool-parameters from one or more presets.
+    """Retrieve predefined tool parameters from a preset, with fallback to DEFAULT preset.
+
+    Dynamically retrieves preset parameters based on the current workflow stage (MAIN or MATCHREF).
+    The stage identifier is obtained from the calling function's global `VC_STAGE` variable unless
+    explicitly provided.
 
     Parameters
     ----------
     preset_name : str
-        The name of the preset.
+        The name of the preset to retrieve parameters from.
     parameter_name : str
-        The name of the parameter.
+        The name of the parameter to retrieve.
+    stage_identifier : str, optional
+        Explicit stage identifier (default: auto-detect from caller's `VC_STAGE`).
 
     Returns
     -------
-    str
-        The value of the parameter.
+    Any
+        The parameter value from the preset. Falls back to the DEFAULT preset if the parameter is
+        not found in the specified preset.
 
     Raises
     ------
     KeyError
-        If the preset or parameter is not found.
+        If the parameter is not found in either the specified preset or DEFAULT preset.
 
     Notes
     -----
-    This function retrieves the value of a parameter from a preset. The preset can have different values for different stages of execution. The stages are identified by a stage identifier, which is obtained dynamically using the `inspect` module. The stage identifier is stored in the global variable `VC_STAGE`.
+    **Stage Identifier Detection**
+        If stage_identifier is not provided, the function dynamically obtains it from the caller's
+        global `VC_STAGE` variable using the `inspect` module. This ensures the function can be used
+        in any stage without requiring explicit parameter passing.
 
-    The function first collapses the preset groups into dictionaries for the main and matchref stages. This results in dictionaries with only the override values for the specific stage that is being called.
+    **Preset Resolution Logic**
+        1. Collapses preset groups into dictionaries for MAIN and MATCHREF stages
+        2. Merges dictionaries with MAIN stage taking precedence over MATCHREF
+        3. Uses a defaultdict to return None for missing keys, indicating no override exists
+        4. Prepends stage identifier to parameter keys (e.g., "MAIN_AlignmentPreset")
 
-    The dictionaries for the main and matchref stages are then merged together, with the main stage taking precedence over the matchref stage. This results in one dictionary with the override values, where the stage identifier is prepended to the key.
+    **Fallback Mechanism**
+        If a parameter is not found in the specified preset (indicated by a dict-type value),
+        the function automatically falls back to the DEFAULT preset. This ensures parameters
+        are always available and prevents KeyError exceptions for optional overrides.
 
-    The function uses a `defaultdict` to allow for a default value of `None` if the key is not found in the dictionary. This indicates that there is no override value and the default value should be used.
-
-    If the parameter is a dictionary, it means that the parameter is not found in the specific preset group. In this case, the function fetches the parameter from the default preset. The default preset is obtained by collapsing the preset group for the "DEFAULT" stage.
+    **Key Format**
+        Parameters are stored with stage identifier prefix:
+        - STAGE_MAIN: Parameters for main workflow stage
+        - STAGE_MATCHREF: Parameters for match-reference stage
+        - STAGE_GLOBAL: Parameters shared across all stages
 
     Examples
     --------
-    >>> get_preset_parameter("preset1", "parameter1")
-    'value1'
-    >>> get_preset_parameter("preset2", "parameter2")
-    'value2'
+    Retrieve Minimap2 base alignment settings for a SARSCOV2 preset in the MAIN stage:
+
+    >>> settings = get_preset_parameter("SARSCOV2", "Minimap2_Settings_Base")
+    >>> # Returns: "--secondary=no", retrieved from DEFAULT - GLOBAL since SARSCOV2 does not override this parameter
+
+    Retrieve adapter removal preset specific to platform:
+
+    >>> adapters = get_preset_parameter("INFLUENZA", "FastP_AdapterRemoval_Settings_illumina")
+    >>> # Automatically falls back to DEFAULT preset if INFLUENZA-specific setting not found
+
+    Use explicit stage identifier for testing or non-standard workflows:
+
+    >>> params = get_preset_parameter("SARSCOV2", "Clipper_FilterParams_nanopore", stage_identifier="MAIN")
+    >>> # Explicitly specifies MAIN stage instead of auto-detecting from VC_STAGE
 
     """
 
