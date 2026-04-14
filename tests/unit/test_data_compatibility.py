@@ -70,3 +70,43 @@ def test_missing_package_raises_systemexit_with_install_instructions() -> None:
     message = str(exc_info.value)
     assert "viroconstrictor-data is not installed" in message
     assert "pip install" in message
+
+
+def test_manifest_missing_compatible_key_raises_systemexit() -> None:
+    """SystemExit is raised when compatible_viroconstrictor is missing from manifest."""
+    mock_pkg = MagicMock()
+    mock_pkg.get_manifest.return_value = {"schema_version": "1"}
+
+    with patch.dict("sys.modules", {"viroconstrictor_data": mock_pkg}):
+        with pytest.raises(SystemExit) as exc_info:
+            workflow_config._check_data_compatibility()
+
+    message = str(exc_info.value)
+    assert "compatible_viroconstrictor" in message
+    assert "invalid" in message
+
+
+def test_manifest_invalid_specifier_raises_systemexit() -> None:
+    """SystemExit is raised when compatible_viroconstrictor contains an invalid specifier."""
+    mock_pkg = _make_mock_data_pkg("not-a-valid-specifier")
+
+    with patch.dict("sys.modules", {"viroconstrictor_data": mock_pkg}):
+        with pytest.raises(SystemExit) as exc_info:
+            workflow_config._check_data_compatibility()
+
+    message = str(exc_info.value)
+    assert "compatible_viroconstrictor" in message
+    assert "not valid" in message
+
+
+def test_manifest_must_be_dictionary() -> None:
+    """SystemExit is raised when get_manifest() does not return a dictionary."""
+    mock_pkg = MagicMock()
+    mock_pkg.get_manifest.return_value = ["not", "a", "dict"]
+
+    with patch.dict("sys.modules", {"viroconstrictor_data": mock_pkg}):
+        with pytest.raises(SystemExit) as exc_info:
+            workflow_config._check_data_compatibility()
+
+    message = str(exc_info.value)
+    assert "manifest must be a dictionary" in message

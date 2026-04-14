@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Hashable
 
 import yaml
-from packaging.specifiers import SpecifierSet
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from snakemake.api import (
     ConfigSettings,
     DAGSettings,
@@ -37,17 +37,55 @@ from ViroConstrictor.workflow.helpers.containers import (
 
 
 def _check_data_compatibility() -> None:
-    """Verify that the installed viroconstrictor-data package is compatible with this version of ViroConstrictor."""
+    """Validate that `viroconstrictor_data` is installed and version-compatible.
+
+    Raises
+    ------
+    SystemExit
+        Raised when the package is missing, has an invalid manifest, contains an invalid
+        compatibility specifier, or does not support the current ViroConstrictor version.
+
+    """
     try:
         import viroconstrictor_data
     except ModuleNotFoundError:
         raise SystemExit("viroconstrictor-data is not installed.\nRun: pip install 'viroconstrictor-data' to install.") from None
-    manifest = viroconstrictor_data.get_manifest()
-    specifier = SpecifierSet(manifest["compatible_viroconstrictor"])
+
+    try:
+        manifest = viroconstrictor_data.get_manifest()
+    except (AttributeError, TypeError):
+        raise SystemExit(
+            "Installed viroconstrictor-data package is invalid: missing a usable get_manifest() function.\n"
+            "Run: pip install --upgrade --force-reinstall 'viroconstrictor-data' to reinstall."
+        ) from None
+
+    if not isinstance(manifest, dict):
+        raise SystemExit(
+            "Installed viroconstrictor-data package is invalid: manifest must be a dictionary.\n"
+            "Run: pip install --upgrade --force-reinstall 'viroconstrictor-data' to reinstall."
+        )
+
+    compatible_range = manifest.get("compatible_viroconstrictor")
+    if not isinstance(compatible_range, str) or not compatible_range.strip():
+        raise SystemExit(
+            "Installed viroconstrictor-data package is invalid: manifest does not contain a valid "
+            "'compatible_viroconstrictor' value.\n"
+            "Run: pip install --upgrade --force-reinstall 'viroconstrictor-data' to reinstall."
+        )
+
+    try:
+        specifier = SpecifierSet(compatible_range)
+    except InvalidSpecifier:
+        raise SystemExit(
+            "Installed viroconstrictor-data package is invalid: "
+            f"'compatible_viroconstrictor' specifier '{compatible_range}' is not valid.\n"
+            "Run: pip install --upgrade --force-reinstall 'viroconstrictor-data' to reinstall."
+        ) from None
+
     if __version__ not in specifier:
         raise SystemExit(
             f"viroconstrictor-data is not compatible with ViroConstrictor {__version__}.\n"
-            f"Compatible ViroConstrictor range: {manifest['compatible_viroconstrictor']}\n"
+            f"Compatible ViroConstrictor range: {compatible_range}\n"
             f"Run: pip install 'viroconstrictor-data' to update."
         )
 
@@ -125,6 +163,16 @@ class MaxThreadsPerType:
     """
 
     def __init__(self, inputs_obj: CLIparser, configuration: ConfigParser):
+        """Initialize per-task thread limits based on compute mode.
+
+        Parameters
+        ----------
+        inputs_obj : CLIparser
+            Parsed CLI inputs containing the requested thread count.
+        configuration : ConfigParser
+            User configuration used to determine whether execution is local or grid-based.
+
+        """
         self.assignment = False
         # NOTE: I expect that we need to change how 'see' the configuration of either local or grid mode, but this depends on other modifications.
         if configuration["COMPUTING"]["compmode"] == "grid":
@@ -197,6 +245,23 @@ class WorkflowConfig:
         outdir_override: str = "",
         vc_stage: str | None = None,
     ) -> None:
+        """Build all Snakemake settings objects for one ViroConstrictor stage.
+
+        Parameters
+        ----------
+        parsed_inputs : CLIparser
+            Parsed command-line inputs, including user configuration and runtime flags.
+        outdir_override : str, optional
+            Output directory override propagated to the workflow config, by default ``""``.
+        vc_stage : str | None, optional
+            Workflow stage identifier. Supported values are ``"MR"`` and ``"MAIN"``.
+
+        Raises
+        ------
+        ValueError
+            Raised when ``vc_stage`` is not one of the supported stage identifiers.
+
+        """
         _check_data_compatibility()
 
         self.inputs = parsed_inputs

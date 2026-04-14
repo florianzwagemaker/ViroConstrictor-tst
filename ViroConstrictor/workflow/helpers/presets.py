@@ -4,6 +4,7 @@ import inspect
 import json
 import re
 from collections import defaultdict
+from functools import cache
 from typing import Any, List, Tuple
 
 from rich import print
@@ -11,44 +12,73 @@ from rich import print
 from ViroConstrictor.logging import log
 
 
-def _load_preset_data() -> tuple[dict, dict]:
-    """Load preset parameters and aliases from viroconstrictor-data package.
+def _load_preset_resource(resource_name: str) -> dict:
+    """Load a single preset JSON resource from viroconstrictor-data package.
+
+    Parameters
+    ----------
+    resource_name : str
+        JSON file name inside the ``viroconstrictor_data/presets`` resource directory.
 
     Returns
     -------
-    tuple[dict, dict]
-        A tuple containing:
-        - preset_params : dict
-            Preset parameter definitions.
-        - preset_aliases : dict
-            Preset alias mappings.
+    dict
+        Parsed JSON content for the requested preset resource.
 
     Raises
     ------
     ImportError
-        If viroconstrictor-data package is not installed.
-
-    Examples
-    --------
-    Load presets and aliases from the installed viroconstrictor-data package:
-
-    >>> params, aliases = _load_preset_data()
-    >>> "SARSCOV2" in params
-    True
-    >>> "INFLUENZA" in params
-    True
+        If the viroconstrictor-data package is not installed, or if required resources are missing/invalid.
 
     """
     try:
         pkg = importlib.resources.files("viroconstrictor_data") / "presets"
-        params = json.loads((pkg / "preset_params.json").read_text(encoding="utf-8"))
-        preset_aliases = json.loads((pkg / "preset_aliases.json").read_text(encoding="utf-8"))
-        return params, preset_aliases
+        return json.loads((pkg / resource_name).read_text(encoding="utf-8"))
     except ModuleNotFoundError:
-        raise ImportError("viroconstrictor-data is not installed. Run: pip install 'viroconstrictor-data>=0.0.1'") from None
+        raise ImportError("viroconstrictor-data is not installed. Run: pip install --upgrade --force-reinstall viroconstrictor-data") from None
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        raise ImportError(
+            "viroconstrictor-data preset resources are missing or invalid. Run: pip install --upgrade --force-reinstall viroconstrictor-data"
+        ) from None
 
 
-presets, aliases = _load_preset_data()
+# This function is currently not used but it's there for future reference if we want to load both presets and aliases at the same time.
+def _load_preset_data() -> tuple[dict, dict]:
+    """Load preset parameter and alias dictionaries from viroconstrictor-data.
+
+    Returns
+    -------
+    tuple[dict, dict]
+        A two-item tuple containing preset parameters and preset aliases.
+
+    """
+    return _load_preset_resource("preset_params.json"), _load_preset_resource("preset_aliases.json")
+
+
+@cache
+def _get_presets() -> dict:
+    """Load and cache preset parameters.
+
+    Returns
+    -------
+    dict
+        Preset parameter definitions loaded from ``preset_params.json``.
+
+    """
+    return _load_preset_resource("preset_params.json")
+
+
+@cache
+def _get_aliases() -> dict:
+    """Load and cache preset aliases.
+
+    Returns
+    -------
+    dict
+        Preset alias mappings loaded from ``preset_aliases.json``.
+
+    """
+    return _load_preset_resource("preset_aliases.json")
 
 
 def get_key_from_value(d: dict, value: str) -> str | None:
@@ -134,15 +164,17 @@ def match_preset_name(targetname: str, use_presets: bool) -> Tuple[str, float]:
     if query == "DEFAULT":
         return "DEFAULT", float(1)
 
+    preset_aliases = _get_aliases()
+
     # flatten list of lists aliases.values() into a single list
-    aliases_list = [item for sublist in aliases.values() for item in sublist]
+    aliases_list = [item for sublist in preset_aliases.values() for item in sublist]
 
     best_match = difflib.get_close_matches(query, aliases_list, cutoff=0.0, n=1)[0]
     score = difflib.SequenceMatcher(None, a=query, b=best_match).ratio()
 
     if score < 0.40:
         return "DEFAULT", float(0)
-    if matched_preset := get_key_from_value(aliases, best_match):
+    if matched_preset := get_key_from_value(preset_aliases, best_match):
         return matched_preset, score
     return "DEFAULT", float(0)
 
@@ -180,8 +212,9 @@ def collapse_preset_group(preset_name: str, stages: List[str], stage_identifier:
     >>> collapse_preset_group("group1", ["stage1", "stage2"], "prefix")
     {'prefix_key1': 'value1', 'prefix_key2': 'value2', 'prefix_key3': 'value3', 'prefix_key4': 'value4'}
     """
+    preset_data = _get_presets()
     temp_dict: dict[str, str] = {}
-    for k, v in presets[preset_name].items():
+    for k, v in preset_data[preset_name].items():
         if k in stages:
             for nk, nv in v.items():
                 temp_dict[f"{stage_identifier}_{nk}"] = nv
