@@ -350,6 +350,8 @@ class WorkflowConfig:
         if cores == available:
             return cores - 2
         return available - 2 if cores > available else cores
+    
+    def _get_max_local_mem(self) -> int:
         """Get the maximum local memory available in MB, minus a buffer of 2000 MB.
 
         Returns
