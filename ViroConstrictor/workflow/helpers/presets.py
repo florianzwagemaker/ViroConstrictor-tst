@@ -34,12 +34,8 @@ def _load_preset_resource(resource_name: str) -> dict:
     try:
         pkg = importlib.resources.files("viroconstrictor_data") / "presets"
         return json.loads((pkg / resource_name).read_text(encoding="utf-8"))
-    except ModuleNotFoundError:
-        raise ImportError("viroconstrictor-data is not installed. Run: pip install --upgrade --force-reinstall viroconstrictor-data") from None
-    except (FileNotFoundError, json.JSONDecodeError, OSError):
-        raise ImportError(
-            "viroconstrictor-data preset resources are missing or invalid. Run: pip install --upgrade --force-reinstall viroconstrictor-data"
-        ) from None
+    except (ModuleNotFoundError, json.JSONDecodeError, OSError):
+        raise ImportError("viroconstrictor-data preset resources are missing or invalid. Run: pip install --upgrade --force-reinstall viroconstrictor-data") from None
 
 
 # This function is currently not used but it's there for future reference if we want to load both presets and aliases at the same time.
