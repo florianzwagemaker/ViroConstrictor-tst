@@ -45,7 +45,7 @@ def _load_preset_data() -> tuple[dict, dict]:
         preset_aliases = json.loads((pkg / "preset_aliases.json").read_text(encoding="utf-8"))
         return params, preset_aliases
     except ModuleNotFoundError:
-        raise ImportError("viroconstrictor-data is not installed. " "Run: pip install 'viroconstrictor-data>=0.0.1'") from None
+        raise ImportError("viroconstrictor-data is not installed. Run: pip install 'viroconstrictor-data>=0.0.1'") from None
 
 
 presets, aliases = _load_preset_data()

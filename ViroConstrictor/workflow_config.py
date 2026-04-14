@@ -41,7 +41,7 @@ def _check_data_compatibility() -> None:
     try:
         import viroconstrictor_data
     except ModuleNotFoundError:
-        raise SystemExit("viroconstrictor-data is not installed.\n" "Run: pip install 'viroconstrictor-data' to install.") from None
+        raise SystemExit("viroconstrictor-data is not installed.\nRun: pip install 'viroconstrictor-data' to install.") from None
     manifest = viroconstrictor_data.get_manifest()
     specifier = SpecifierSet(manifest["compatible_viroconstrictor"])
     if __version__ not in specifier:
@@ -350,7 +350,7 @@ class WorkflowConfig:
         if cores == available:
             return cores - 2
         return available - 2 if cores > available else cores
-    
+
     def _get_max_local_mem(self) -> int:
         """Get the maximum local memory available in MB, minus a buffer of 2000 MB.
 
